@@ -17,8 +17,9 @@ _TS_ALL = (TS_INST, TS_MEAN)
 
 
 def make_daily_var(files_var, var_name, local_time, weights_func, land_grid,
-                   metadata, ut_var, tsPad=(0, 0), tsType=TS_INST, mdi=FMDI,
-                   scale=1.0, offset=0.0, file_out=None):
+                   metadata, ut_var,
+                   file_reader=None, tsPad=(0, 0), tsType=TS_INST,
+                   mdi=FMDI, scale=1.0, offset=0.0, file_out=None):
     """
     Driver routine for generating a daily output file for a single
     variable from sub-daily input files.
@@ -61,6 +62,10 @@ def make_daily_var(files_var, var_name, local_time, weights_func, land_grid,
         as it's read by subsequent steps of the dry spell analysis code.
         It's up the the user to set this basetime correctly (see notes
         below).
+    file_reader : function, optional
+        User supplied function to read the input netCDF files.  Must have
+        the same call signature as
+        <dry_spell_rwr.utc_to_lt.default_file_reader()>.
     tsPad : tuple, (npre,npost), optional
         Number of times the first (last) time series field should be
         duplicated at the start (end) of the series to create a time
@@ -118,6 +123,9 @@ def make_daily_var(files_var, var_name, local_time, weights_func, land_grid,
     if tsType not in _TS_ALL:
         raise ValueError("Only tsType values %s are permitted." % str(_TS_ALL))
 
+    if file_reader is None:
+        file_reader = default_file_reader
+
     ###########################################################################
     # Calculate the interpolation/summation weights through days [D-1, D, D+1]
     # that will be used to reduce the time series from sub-daily to daily.
@@ -136,7 +144,7 @@ def make_daily_var(files_var, var_name, local_time, weights_func, land_grid,
     ###########################################################################
     # Calculate the daily time series from sub-daily input data.
     ###########################################################################
-    args = (mdi, weights, land)
+    args = (mdi, weights, land, file_reader)
     kwargs = dict(tsPad=tsPad, tsType=tsType, scale=scale, offset=offset)
 
     if isinstance(var_name, str):
@@ -153,6 +161,30 @@ def make_daily_var(files_var, var_name, local_time, weights_func, land_grid,
         fio.nc_write(vara, file_out, metadata, ut_var, local_time)
 
     return
+
+
+def default_file_reader(filename, varname, land):
+    """
+    Read data from a netCDF file and return it in an array with shape
+    (NTIME,NLAND).
+
+    Parameters
+    ----------
+
+    filename : str
+        Input netCDF filename.
+    varname : str
+        Name of input variable in the netCDF file: e.g., "tas", "pr", etc.
+    land : ndarray, shape(2,NLAND)
+        Rows and columns of land points on the 2D model grid.
+
+    """
+
+    with nc4.Dataset(filename, "r") as ncid:
+        var = ncid.variables[varname][:].squeeze()
+        if var.ndim == 3:
+            var = var[:, land[0], land[1]]
+    return var
 
 
 def getInstantFromMeans(var, N=2, k=None):
@@ -395,7 +427,8 @@ def getweights_p(time_loc_sol, lon, steps_perday=8, tsType=TS_INST):
     return weight_lon
 
 
-def get_var_atlocaltime(ffiles, varname, fillvalue, weights_lon, land_indexes,
+def get_var_atlocaltime(ffiles, varname, fillvalue, weights_lon,
+                        land_indexes, file_reader,
                         steps_perday=8, precip=0, tsPad=(0, 0),
                         tsType=TS_INST, scale=1.0, offset=0.0):
     """
@@ -416,6 +449,10 @@ def get_var_atlocaltime(ffiles, varname, fillvalue, weights_lon, land_indexes,
         Weights returned from one of the getweights() functions.
     land_indexes : ndarray, shape(2,NLAND)
         Rows and columns of land points on the 2D model grid.
+    file_reader : function
+        User supplied function to read the input netCDF files.  Must have
+        the same call signature as
+        <dry_spell_rwr.utc_to_lt.default_file_reader()>.
     steps_perday : int
         Number of values per day, e.g., 3 houly values, 8 steps per day
     precip : int
@@ -446,15 +483,11 @@ def get_var_atlocaltime(ffiles, varname, fillvalue, weights_lon, land_indexes,
     lista = []
     for f in ffiles:
         logger.info("Reading %s", f)
-        ncr = nc4.Dataset(f, 'r')
-        var = ncr.variables[varname][:].squeeze()
-        if var.ndim == 3:
-            var = var[:, land_indexes[0], land_indexes[1]]
+        var = file_reader(f, varname, land_indexes)
         var *= scale
         var += offset
         for t in var:
             lista.append(t)
-        ncr.close()
 
     # Manually account for time series lengths that are not an exact multiple
     # of steps_per_day by duplicating fields at the beginning and/or end.

@@ -7,6 +7,7 @@ from matplotlib import rc, use
 rc("font", family="DejaVu Sans")
 
 from cartopy.crs import PlateCarree
+from cartopy.feature import OCEAN
 import matplotlib.cm as cm
 from matplotlib.colors import ListedColormap
 import matplotlib.pyplot as plt
@@ -118,7 +119,8 @@ def _get_cmap(name, levs, bad=None, under=None, over=None):
     return cmap
 
 
-def _plot_map(ax, grid, var, levs, cmap, ticks=None):
+def _plot_map(ax, grid, var, levs, cmap, ticks=None, labelled=False,
+              ocean=None):
     """
     Plot data on a map to an existing set of axes.
 
@@ -137,6 +139,10 @@ def _plot_map(ax, grid, var, levs, cmap, ticks=None):
         A colormap of N-1 colors.
     ticks : list or ndarray, optional
         If present draw a colorbar marked with these tick levels.
+    labelled : bool, optional
+        If True, draw lon/lat gridlines and labels on the map.
+    ocean : Matplotlib color, optional
+        Color to mask the ocean.
 
     Returns
     -------
@@ -148,11 +154,14 @@ def _plot_map(ax, grid, var, levs, cmap, ticks=None):
 
     kw_plot = dict(vmin=min(levs), vmax=max(levs), cmap=cmap)
 
-    I = grid.plot_var(ax, var, labelled=False, kw_plot=kw_plot)
+    I = grid.plot_var(ax, var, labelled=labelled, kw_plot=kw_plot)
     ax.set_ylim(-60, 90)
 
     if ticks is not None:
         plt.colorbar(I, fraction=0.05, ticks=ticks)
+
+    if ocean is not None:
+        ax.add_feature(OCEAN, facecolor=ocean)
 
     return I
 
@@ -615,7 +624,7 @@ def plot_rwr_ptiles(axs, regions, plotables, **kwargs):
     return
 
 
-def plot_rwr_map(ax, grid, var, title=None, levs=None, cmap=None,
+def plot_rwr_map(ax, grid, var, title=None, levs=None, cmap=None, ocean=None,
                  labelled=False, add_hist=True, add_colorbar=False):
     """
     Make a standard global RWR map.
@@ -636,6 +645,8 @@ def plot_rwr_map(ax, grid, var, title=None, levs=None, cmap=None,
         to normalise the data between [min(levs), max(levs)] for plotting.
     cmap : str or <matplotlib.colors.Colormap> instance, optional
         Colormap or colormap name.
+    ocean : Matplotlib color, optional
+        Color to mask the ocean.
     labelled : bool, optional
         If True, draw lon/lat gridlines and labels on the map.
     add_hist : bool, optional
@@ -664,24 +675,21 @@ def plot_rwr_map(ax, grid, var, title=None, levs=None, cmap=None,
                                '#d1e5f0', '#92c5de',
                                '#4393c3', '#2166ac'][::-1])
 
-        cmap.set_bad('lightgrey')
         cmap.set_over('darkred')
         cmap.set_under('darkblue')
 
-    # Consider replacing these lines with a call to _plot_map().
-    kw_plot = dict(vmin=min(levs), vmax=max(levs), cmap=cmap)
+    if add_colorbar:
+        cmap.colorbar_extend = "both"
+        ticks = levs[:4] + [0.0, ] + levs[-4:]
 
-    I = grid.plot_var(ax, var, kw_plot=kw_plot, labelled=labelled)
+    I = _plot_map(ax, grid, var, levs, cmap, ticks=ticks, labelled=labelled,
+                  ocean=ocean)
 
     ax.set_title(title, fontsize=12)
     ax.set_ylim(-60, 60)
 
     if add_hist:
         bx = _plot_hist(ax, var, cmap)
-
-    if add_colorbar:
-        ticks = levs[:4] + [0.0, ] + levs[-4:]
-        plt.colorbar(I, ax=ax, fraction=0.05, extend="both", ticks=ticks)
 
     return I
 
@@ -807,7 +815,7 @@ def common_plot_rwr_map(file_rwr, file_grid, file_out):
                          subplot_kw=dict(projection=PlateCarree()))
     F.subplots_adjust(left=0.02, right=0.97)
 
-    I = plot_rwr_map(ax, grid, rwr, add_colorbar=True)
+    I = plot_rwr_map(ax, grid, rwr, ocean="lightgrey", add_colorbar=True)
 
     plt.savefig(file_out, dpi=150)
 
