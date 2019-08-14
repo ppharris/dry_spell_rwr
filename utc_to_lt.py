@@ -439,7 +439,8 @@ def var_meta(filename, varname, nland=None):
         if nland is None:
             shape = ncid.variables[varname].shape
         else:
-            shape = (ncid.dimensions["time"].size, nland)
+            dname = "time" if "time" in ncid.dimensions else "tstep"
+            shape = (ncid.dimensions[dname].size, nland)
 
     return {"shape": shape, "dtype": dtype}
 
