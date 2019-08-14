@@ -5,6 +5,8 @@ particular local solar time from sub-daily time series at UTC times.
 
 from __future__ import print_function, division
 
+import dask
+import dask.array as da
 import numpy as np
 import netCDF4 as nc4
 
@@ -126,6 +128,8 @@ def make_daily_var(files_var, var_name, local_time, weights_func, land_grid,
     if file_reader is None:
         file_reader = default_file_reader
 
+    file_reader = dask.delayed(file_reader)
+
     ###########################################################################
     # Calculate the interpolation/summation weights through days [D-1, D, D+1]
     # that will be used to reduce the time series from sub-daily to daily.
@@ -180,8 +184,9 @@ def default_file_reader(filename, varname, land):
 
     """
 
+    logger.info("Reading %s", filename)
     with nc4.Dataset(filename, "r") as ncid:
-        var = ncid.variables[varname][:].squeeze()
+        var = ncid.variables[varname][:]
         if var.ndim == 3:
             var = var[:, land[0], land[1]]
     return var
@@ -427,6 +432,18 @@ def getweights_p(time_loc_sol, lon, steps_perday=8, tsType=TS_INST):
     return weight_lon
 
 
+def var_meta(filename, varname, nland=None):
+    """Return some basic variable metadata from a netCDF file."""
+    with nc4.Dataset(filename, "r") as ncid:
+        dtype = ncid.variables[varname].dtype
+        if nland is None:
+            shape = ncid.variables[varname].shape
+        else:
+            shape = (ncid.dimensions["time"].size, nland)
+
+    return {"shape": shape, "dtype": dtype}
+
+
 def get_var_atlocaltime(ffiles, varname, fillvalue, weights_lon,
                         land_indexes, file_reader,
                         steps_perday=8, precip=0, tsPad=(0, 0),
@@ -478,22 +495,24 @@ def get_var_atlocaltime(ffiles, varname, fillvalue, weights_lon,
 
     """
 
-    # Read the entire time series into a list, one Numpy array for each time
-    # step, and reduce the data from lon/lat to land points.
-    lista = []
-    for f in ffiles:
-        logger.info("Reading %s", f)
-        var = file_reader(f, varname, land_indexes)
-        var *= scale
-        var += offset
-        for t in var:
-            lista.append(t)
+    # Pre-read some metadata info to help with delayed reading of full data.
+    nland = land_indexes.shape[1]
+    meta = [var_meta(f, varname, nland=nland) for f in ffiles]
+
+    # Construct a Dask virtual array of the whole time series.
+    read_tasks = [file_reader(f, varname, land_indexes) for f in ffiles]
+    arra_tasks = [da.from_delayed(t, **m) for t, m in zip(read_tasks, meta)]
+    var = da.concatenate(arra_tasks, axis=0)
+
+    # Apply scale and offset.
+    var = var * scale
+    var = var + offset
 
     # Manually account for time series lengths that are not an exact multiple
     # of steps_per_day by duplicating fields at the beginning and/or end.
-    prePad = [lista[0] for _ in range(tsPad[0])]
-    postPad = [lista[-1] for _ in range(tsPad[1])]
-    lista = prePad + lista + postPad
+    var_pre = [var[:1, ...], ] * tsPad[0]
+    var_post = [var[-1:, ...], ] * tsPad[1]
+    var = da.concatenate(var_pre + [var, ] + var_post, axis=0)
 
     # Estimate instantaneous time series values valid at the time step
     # mid-points that can be used to interpolate to the required daily output
@@ -504,22 +523,18 @@ def get_var_atlocaltime(ffiles, varname, fillvalue, weights_lon,
     # in must account for the mid-point validity times of the estimated
     # instantaneous time series.
     if tsType == TS_MEAN:
-        lista = getInstantFromMeans(lista, N=6, k=2)
+        # lista = getInstantFromMeans(lista, N=6, k=2)
+        raise NotImplementedError("TS_MEAN with Dask is not implemented")
 
     # Put the data into a single Numpy array with shape (NTIME,NLAND).
-    var = np.ma.array(lista)
-    logger.info("All data: %s, %s, min=%s, max=%s",
-                var.shape, var.dtype, var.min(), var.max())
+    logger.info("All data: %s, %s", var.shape, var.dtype)
 
     # Prevent upcasting of the input data when applying the weights, as the
     # weights often inherit a higher precision from the stored grid longitudes.
     weights = weights_lon.astype(var.dtype, casting="same_kind", copy=False)
 
     # Apply the weights to calculate a daily value (might be a sum or a
-    # snapshot) including some local time adjustment.  The precip condition
-    # accounts for variables that are means or totals over periods ending at
-    # the time stamp - the alternative condition is for snapshot variables
-    # valid at the time stamp.
+    # snapshot) including some local time adjustment.
     #
     # When a three-day window of weights is applied to a time series the
     # resulting value is assigned to the date of the middle day of the window.
@@ -527,14 +542,18 @@ def get_var_atlocaltime(ffiles, varname, fillvalue, weights_lon,
     # first and last dates of the data, so they are simply padded with copies
     # of the second and second-to-last fields to give the output data the
     # expected length in days.
-
-    hour_interval = 24//steps_perday
+    win_steps = 3 * steps_perday
+    win_stop = var.shape[0] - 2*steps_perday
     varday = []
-    for i in range(0, len(var)-(48//hour_interval), 24//hour_interval):
-        threedays = var[i:i+72//hour_interval, :]
-        varday.append(np.sum(threedays*weights, axis=0))
+    for i in range(0, win_stop, steps_perday):
+        s = slice(i, i + win_steps)
+        v = (var[s, :]*weights).sum(axis=0)
+        varday.append(v)
 
-    varday.insert(0, varday[0])
-    varday.append(varday[-1])
+    logger.info("Doing the compute.")
+    varday = dask.compute(*varday)
+
+    logger.info("Doing the concatenate.")
+    varday = np.r_[varday[:1], varday, varday[-1:]]
 
     return varday
