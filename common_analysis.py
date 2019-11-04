@@ -115,8 +115,10 @@ def make_analysis(file_events, file_tslsi, file_tas,
     # forces padding of the data to a full number of leapday-less years so that
     # climatologies can be calculated.
     ###########################################################################
-    years = set(e.start_date.year for e in iterevents(events))
-    n_time = cc.year_lengths[ut_events.calendar]*(max(years)-min(years)+1)
+    idx = set(e.start_index for e in iterevents(events))
+    n_years = (ut_events.num2date(max(idx)).year
+               - ut_events.num2date(min(idx)).year + 1)
+    n_time = cc.year_lengths[ut_events.calendar] * n_years
     time_events = [ut_events.num2date(t) for t in range(n_time)]
 
     logger.info("Event analysis start / end dates: %s / %s",

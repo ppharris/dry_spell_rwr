@@ -243,7 +243,7 @@ def get_dryspells_perseason(dryspells, seasons=((12, 1, 2), (3, 4, 5),
     for season in seasons:
         eveSeas = []
         for eveLand in dryspells:
-            eves = [e for e in eveLand if e.start_date.month in season]
+            eves = [e for e in eveLand if e.start_date().month in season]
             eveSeas.append(eves)
         dryspells_seasons.append(eveSeas)
 

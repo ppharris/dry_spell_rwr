@@ -14,6 +14,8 @@ import netCDF4 as nc
 import numpy as np
 from itertools import count
 
+from . import logger
+
 
 class LandGrid(object):
     """
@@ -90,11 +92,17 @@ class LandGrid(object):
         ax.coastlines(resolution="50m", lw=0.5)
 
         if labelled:
-            ggl = ax.gridlines(color="0.5", linestyle="--", draw_labels=True)
-            ggl.xlabels_top = False
-            ggl.ylabels_right = False
-            ggl.xlabel_style = {"size": 10}
-            ggl.ylabel_style = {"size": 10}
+            try:
+                ggl = ax.gridlines(color="0.5",
+                                   linestyle="--",
+                                   draw_labels=True)
+                ggl.xlabels_top = False
+                ggl.ylabels_right = False
+                ggl.xlabel_style = {"size": 10}
+                ggl.ylabel_style = {"size": 10}
+            except TypeError as e:
+                # Catch attempts to gridline unsupported projections.
+                logger.warn(str(e))
 
         return I
 

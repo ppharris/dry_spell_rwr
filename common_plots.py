@@ -6,8 +6,8 @@ from __future__ import print_function, division
 from matplotlib import rc, use
 rc("font", family="DejaVu Sans")
 
-from cartopy.crs import PlateCarree
-from cartopy.feature import OCEAN
+from cartopy.crs import EqualEarth as PlotProj
+from cartopy.feature import LAND, OCEAN
 import matplotlib.cm as cm
 from matplotlib.colors import ListedColormap
 import matplotlib.pyplot as plt
@@ -23,6 +23,7 @@ from . import logger
 
 
 _NEVE_MIN = 10
+_SE_MAX = 0.03  # K/day
 
 
 class Plotable(object):
@@ -39,7 +40,8 @@ class Plotable(object):
 
 
 def nc_rwr_read(filename, grid, name_rwr="rwr", name_neve="neve",
-                neve_min=_NEVE_MIN):
+                name_se="stderr",
+                neve_min=_NEVE_MIN, se_max=_SE_MAX):
     """
     Read RWR from a netCDF file produced by <file_io.nc_rwr_write>
     and apply some extra data rejection based on the number of events.
@@ -55,16 +57,24 @@ def nc_rwr_read(filename, grid, name_rwr="rwr", name_neve="neve",
         Name of relative_warming_rate variable in input netCDF file.
     name_neve : str, optional
         Name of number_of_dry_spells variable in input netCDF file.
+    name_se : str, optional
+        Name of p_value variable in input netCDF file.
     neve_min : int, optional
         Minimum number of dryspells below which a gridbox RWR will be
         masked.  Threshold is compared with the minimum number over dry
         spell day 2 onwards.
+    se_max : float, optional
+        Standard error value (K/day) above which RWR values are
+        considered bad.
 
     Returns
     -------
 
     rwr : <numpy.ma.MaskedArray> instance, shape(lat, lon)
         Relative warming rate (K/day).
+    bad : <numpy.array> instance, shape(lat, lon)
+        Array defining grid boxes that will be greyed-out, i.e., where
+        var is poorly estimated.
 
     """
 
@@ -73,7 +83,14 @@ def nc_rwr_read(filename, grid, name_rwr="rwr", name_neve="neve",
         neve = ncid.variables[name_neve][6:, ...].min(axis=0)
         rwr.mask[neve < neve_min] = True
 
-    return rwr
+        se = ncid.variables[name_se][:]
+
+    # Make a boolean array showing which gridboxes rwr estimates have standard
+    # errors that exceed a threshold value (i.e, are too large).  This is used
+    # to grey-out grid boxes on an RWR map.
+    bad = se > se_max
+
+    return rwr, bad
 
 
 def _get_cmap(name, levs, bad=None, under=None, over=None):
@@ -155,7 +172,6 @@ def _plot_map(ax, grid, var, levs, cmap, ticks=None, labelled=False,
     kw_plot = dict(vmin=min(levs), vmax=max(levs), cmap=cmap)
 
     I = grid.plot_var(ax, var, labelled=labelled, kw_plot=kw_plot)
-    ax.set_ylim(-60, 90)
 
     if ticks is not None:
         plt.colorbar(I, fraction=0.05, ticks=ticks)
@@ -166,7 +182,7 @@ def _plot_map(ax, grid, var, levs, cmap, ticks=None, labelled=False,
     return I
 
 
-def _plot_hist(ax, z, cmap):
+def _plot_hist(ax, z, cmap, bad=None):
     """
     Add a histogram to an existing set of axes.
 
@@ -180,6 +196,9 @@ def _plot_hist(ax, z, cmap):
         Possibly masked data to plot on as a histogram.
     cmap : <matplotlib.colors.Colormap> instance.
         Colormap used to derive colors for positive and negative bins.
+    bad : <numpy.array> instance, shape(lat, lon), optional
+        Array indicating additional gridboxes to exclude from the
+        histogram.
 
     Returns
     -------
@@ -188,10 +207,13 @@ def _plot_hist(ax, z, cmap):
 
     """
 
-    zc = z.compressed()
+    if bad is None:
+        zc = z.compressed()
+    else:
+        zc = z[~bad].compressed()
 
-    bx = inset_axes(ax, width="18%", height=0.7, loc=6,
-                    bbox_to_anchor=(0.05, 0.1, 1.1, 0.5),
+    bx = inset_axes(ax, width="15%", height=0.7, loc=6,
+                    bbox_to_anchor=(0.10, 0.1, 1.1, 0.5),
                     bbox_transform=ax.transAxes)
 
     bins = np.linspace(-1.05, 1.05, 42)
@@ -428,9 +450,10 @@ def _plot_events_neve(ax, grid, events, scale_factor=1.0):
     neve = grid.expand(neve) * scale_factor
 
     levs = np.linspace(0, 10, 21)
-    cmap = _get_cmap("cividis", levs, bad="lightgrey", over="orange")
-    I = _plot_map(ax, grid, neve, levs, cmap, levs[::4])
+    cmap = _get_cmap("cividis", levs, over="orange")
+    I = _plot_map(ax, grid, neve, levs, cmap, ticks=levs[::4])
     ax.set_title("Number of dry spell events per year")
+    ax.add_feature(LAND, facecolor="lightgrey")
 
     return I
 
@@ -467,9 +490,10 @@ def _plot_events_nday(ax, grid, events, scale_factor=1.0):
     nday = grid.expand(nday) * scale_factor
 
     levs = np.linspace(0, 360, 13)
-    cmap = _get_cmap("cividis", levs, bad="lightgrey", over="orange")
-    I = _plot_map(ax, grid, nday, levs, cmap, levs[::3])
+    cmap = _get_cmap("cividis", levs, over="orange")
+    I = _plot_map(ax, grid, nday, levs, cmap, ticks=levs[::3])
     ax.set_title("Number of days per year spent in dry spells")
+    ax.add_feature(LAND, facecolor="lightgrey")
 
     return I
 
@@ -510,9 +534,10 @@ def _plot_events_mdur(ax, grid, events, scale_factor=1.0):
     mdur = grid.expand(mdur)
 
     levs = np.linspace(10, 35, 11)
-    cmap = _get_cmap("cividis", levs, bad="lightgrey", over="orange")
-    I = _plot_map(ax, grid, mdur, levs, cmap, levs[::2])
+    cmap = _get_cmap("cividis", levs, over="orange")
+    I = _plot_map(ax, grid, mdur, levs, cmap, ticks=levs[::2])
     ax.set_title("Median duration of dry spell")
+    ax.add_feature(LAND, facecolor="lightgrey")
 
     return I
 
@@ -540,8 +565,14 @@ def plot_events(axs, grid, events, file_events=""):
 
     """
 
-    years = set(e.start_date.year for e in iterevents(events))
+    idx = set(e.start_index for e in iterevents(events))
+    for eve in iterevents(events):
+        break
+
+    years = range(eve._ut.num2date(min(idx)).year,
+                  eve._ut.num2date(max(idx)).year + 1)
     scale_factor = 1. / len(years)
+
     _events_add_title(axs, file_events, events, years)
     _plot_events_neve(axs[0], grid, events, scale_factor)
     _plot_events_nday(axs[1], grid, events, scale_factor)
@@ -624,8 +655,9 @@ def plot_rwr_ptiles(axs, regions, plotables, **kwargs):
     return
 
 
-def plot_rwr_map(ax, grid, var, title=None, levs=None, cmap=None, ocean=None,
-                 labelled=False, add_hist=True, add_colorbar=False):
+def plot_rwr_map(ax, grid, var, bad=None, title=None, levs=None, cmap=None,
+                 ocean=None, labelled=False, add_hist=True,
+                 add_colorbar=False):
     """
     Make a standard global RWR map.
 
@@ -638,6 +670,9 @@ def plot_rwr_map(ax, grid, var, title=None, levs=None, cmap=None, ocean=None,
         Object describing the RWR spatial grid.
     var : <numpy.ma.MaskedArray> instance, shape(lat, lon).
         RWR data to plot on the map and histogram.
+    bad : <numpy.array> instance, shape(lat, lon), optional.
+        Array defining grid boxes that will be greyed-out, e.g., where
+        var is poorly estimated.
     title : str, optional
         Text to replace the standard plot title.
     levs : list, optional
@@ -681,15 +716,24 @@ def plot_rwr_map(ax, grid, var, title=None, levs=None, cmap=None, ocean=None,
     if add_colorbar:
         cmap.colorbar_extend = "both"
         ticks = levs[:4] + [0.0, ] + levs[-4:]
+    else:
+        ticks = None
 
     I = _plot_map(ax, grid, var, levs, cmap, ticks=ticks, labelled=labelled,
                   ocean=ocean)
 
     ax.set_title(title, fontsize=12)
-    ax.set_ylim(-60, 60)
+
+    if bad is not None:
+        kw_plot_greyed = {
+            "cmap": ListedColormap(["0.5", ]),
+        }
+        greyed = np.ma.ones(bad.shape, dtype=int)
+        greyed.mask = ~bad
+        I2 = grid.plot_var(ax, greyed, labelled=False, kw_plot=kw_plot_greyed)
 
     if add_hist:
-        bx = _plot_hist(ax, var, cmap)
+        bx = _plot_hist(ax, var, cmap, bad=bad)
 
     return I
 
@@ -715,7 +759,7 @@ def common_plot_events(file_events, file_grid, file_out):
     events, ut_events = fio.asc_events_read(file_events)
 
     F, A = plt.subplots(nrows=3, figsize=(8, 10),
-                        subplot_kw=dict(projection=PlateCarree()))
+                        subplot_kw=dict(projection=PlotProj()))
     F.subplots_adjust(top=0.9, bottom=0.026,
                       left=0.02, right=0.95,
                       hspace=0.177, wspace=0.2)
@@ -792,7 +836,7 @@ def common_plot_rwr_ptiles(file_patterns, file_out):
     return
 
 
-def common_plot_rwr_map(file_rwr, file_grid, file_out):
+def common_plot_rwr_map(file_rwr, file_grid, file_out, **kwargs):
     """
     Make a standard RWR map and save as a PNG image.
 
@@ -809,13 +853,17 @@ def common_plot_rwr_map(file_rwr, file_grid, file_out):
     """
 
     grid = read_grid(file_grid)
-    rwr = nc_rwr_read(file_rwr, grid)
+    rwr, bad = nc_rwr_read(file_rwr, grid)
 
-    F, ax = plt.subplots(figsize=(11, 4),
-                         subplot_kw=dict(projection=PlateCarree()))
-    F.subplots_adjust(left=0.02, right=0.97)
+    F, ax = plt.subplots(figsize=(7, 4),
+                         subplot_kw=dict(projection=PlotProj()))
+    F.subplots_adjust(left=0.01, right=0.94)
 
-    I = plot_rwr_map(ax, grid, rwr, ocean="lightgrey", add_colorbar=True)
+    kw = kwargs.copy()
+    kw.setdefault("ocean", "lightgrey")
+    kw.setdefault("add_colorbar", True)
+
+    I = plot_rwr_map(ax, grid, rwr, bad=bad, **kw)
 
     plt.savefig(file_out, dpi=150)
 

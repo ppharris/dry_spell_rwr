@@ -21,11 +21,16 @@ class Event(object):
         self.duration = duration
         self.antep = antep
         self._ut = ut
-        self.start_date = self._ut.num2date(self.start_index)
 
     def __repr__(self):
         return "%d: Start date %s: %d days, %g mm" % (
-            self.land, self.start_date, self.duration, self.antep)
+            self.land, self.start_date(), self.duration, self.antep)
+
+    def start_date(self):
+        return self._ut.num2date(self.start_index)
+
+    def end_date(self):
+        return self._ut.num2date(self.start_index+self.duration-1)
 
 
 def iterevents(events):
