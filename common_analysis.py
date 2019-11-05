@@ -280,7 +280,7 @@ def calc_srex_compos(events, var, var_name, weights,
 
     Parameters
     ----------
-    events : list of lists of <dry_spells.event.Event> instances
+    events : list of lists of <dry_spell_rwr.event.Event> instances
         Global dry spell event information.  Outer list is some
         grouping, e.g., season, inner list is land point.
     var : MaskedArray, shape(time, land)
@@ -346,7 +346,7 @@ def calc_srex_rwr(events, tslsi_anom, tas_anom, weights,
 
     Parameters
     ----------
-    events : list of lists of <dry_spells.event.Event> instances
+    events : list of lists of <dry_spell_rwr.event.Event> instances
         Global dry spell event information.  Outer list is some
         grouping, e.g., season, inner list is land point.
     tslsi_anom : MaskedArray, shape(time, land)
@@ -438,7 +438,7 @@ def calc_global_rwr(events, tslsi_anom, tas_anom, weights, regrid_model,
 
     Parameters
     ----------
-    events : list of lists of <dry_spells.event.Event> instances
+    events : list of lists of <dry_spell_rwr.event.Event> instances
         Global dry spell event information.  Outer list is some
         grouping, e.g., season, inner list is land point.
     tslsi_anom : MaskedArray, shape(time, land)
