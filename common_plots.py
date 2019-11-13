@@ -3,11 +3,9 @@
 
 from __future__ import print_function, division
 
-from matplotlib import rc, use
-rc("font", family="DejaVu Sans")
-
 from cartopy.crs import EqualEarth as PlotProj
 from cartopy.feature import LAND, OCEAN
+from matplotlib import rc
 import matplotlib.cm as cm
 from matplotlib.colors import ListedColormap
 import matplotlib.pyplot as plt
@@ -21,6 +19,8 @@ from . import file_io as fio
 from . import srex as srex
 from . import logger
 
+
+rc("font", family="DejaVu Sans")
 
 _NEVE_MIN = 10
 _SE_MAX = 0.03  # K/day
@@ -164,22 +164,22 @@ def _plot_map(ax, grid, var, levs, cmap, ticks=None, labelled=False,
     Returns
     -------
 
-    I : mappable
+    PCM : mappable
         E.,g, <matplotlib.collections.QuadMesh>
 
     """
 
     kw_plot = dict(vmin=min(levs), vmax=max(levs), cmap=cmap)
 
-    I = grid.plot_var(ax, var, labelled=labelled, kw_plot=kw_plot)
+    PCM = grid.plot_var(ax, var, labelled=labelled, kw_plot=kw_plot)
 
     if ticks is not None:
-        plt.colorbar(I, fraction=0.05, ticks=ticks)
+        plt.colorbar(PCM, fraction=0.05, ticks=ticks)
 
     if ocean is not None:
         ax.add_feature(OCEAN, facecolor=ocean)
 
-    return I
+    return PCM
 
 
 def _plot_hist(ax, z, cmap, bad=None):
@@ -441,7 +441,7 @@ def _plot_events_neve(ax, grid, events, scale_factor=1.0):
     Returns
     -------
 
-    I : mappable
+    PCM : mappable
         E.,g, <matplotlib.collections.QuadMesh>.
 
     """
@@ -451,11 +451,11 @@ def _plot_events_neve(ax, grid, events, scale_factor=1.0):
 
     levs = np.linspace(0, 10, 21)
     cmap = _get_cmap("cividis", levs, over="orange")
-    I = _plot_map(ax, grid, neve, levs, cmap, ticks=levs[::4])
+    PCM = _plot_map(ax, grid, neve, levs, cmap, ticks=levs[::4])
     ax.set_title("Number of dry spell events per year")
     ax.add_feature(LAND, facecolor="lightgrey")
 
-    return I
+    return PCM
 
 
 def _plot_events_nday(ax, grid, events, scale_factor=1.0):
@@ -478,7 +478,7 @@ def _plot_events_nday(ax, grid, events, scale_factor=1.0):
     Returns
     -------
 
-    I : mappable
+    PCM : mappable
         E.,g, <matplotlib.collections.QuadMesh>.
 
     """
@@ -491,11 +491,11 @@ def _plot_events_nday(ax, grid, events, scale_factor=1.0):
 
     levs = np.linspace(0, 360, 13)
     cmap = _get_cmap("cividis", levs, over="orange")
-    I = _plot_map(ax, grid, nday, levs, cmap, ticks=levs[::3])
+    PCM = _plot_map(ax, grid, nday, levs, cmap, ticks=levs[::3])
     ax.set_title("Number of days per year spent in dry spells")
     ax.add_feature(LAND, facecolor="lightgrey")
 
-    return I
+    return PCM
 
 
 def _plot_events_mdur(ax, grid, events, scale_factor=1.0):
@@ -518,7 +518,7 @@ def _plot_events_mdur(ax, grid, events, scale_factor=1.0):
     Returns
     -------
 
-    I : mappable
+    PCM : mappable
         E.,g, <matplotlib.collections.QuadMesh>.
 
     """
@@ -535,11 +535,11 @@ def _plot_events_mdur(ax, grid, events, scale_factor=1.0):
 
     levs = np.linspace(10, 35, 11)
     cmap = _get_cmap("cividis", levs, over="orange")
-    I = _plot_map(ax, grid, mdur, levs, cmap, ticks=levs[::2])
+    PCM = _plot_map(ax, grid, mdur, levs, cmap, ticks=levs[::2])
     ax.set_title("Median duration of dry spell")
     ax.add_feature(LAND, facecolor="lightgrey")
 
-    return I
+    return PCM
 
 
 def plot_events(axs, grid, events, file_events=""):
@@ -692,7 +692,7 @@ def plot_rwr_map(ax, grid, var, bad=None, title=None, levs=None, cmap=None,
     Returns
     -------
 
-    I : mappable
+    PCM : mappable
         E.,g, <matplotlib.collections.QuadMesh>
 
     """
@@ -719,8 +719,8 @@ def plot_rwr_map(ax, grid, var, bad=None, title=None, levs=None, cmap=None,
     else:
         ticks = None
 
-    I = _plot_map(ax, grid, var, levs, cmap, ticks=ticks, labelled=labelled,
-                  ocean=ocean)
+    PCM = _plot_map(ax, grid, var, levs, cmap, ticks=ticks, labelled=labelled,
+                    ocean=ocean)
 
     ax.set_title(title, fontsize=12)
 
@@ -735,7 +735,7 @@ def plot_rwr_map(ax, grid, var, bad=None, title=None, levs=None, cmap=None,
     if add_hist:
         bx = _plot_hist(ax, var, cmap, bad=bad)
 
-    return I
+    return PCM
 
 
 def common_plot_events(file_events, file_grid, file_out):
@@ -863,7 +863,7 @@ def common_plot_rwr_map(file_rwr, file_grid, file_out, **kwargs):
     kw.setdefault("ocean", "lightgrey")
     kw.setdefault("add_colorbar", True)
 
-    I = plot_rwr_map(ax, grid, rwr, bad=bad, **kw)
+    PCM = plot_rwr_map(ax, grid, rwr, bad=bad, **kw)
 
     plt.savefig(file_out, dpi=150)
 

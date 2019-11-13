@@ -227,7 +227,8 @@ def make_analysis(file_events, file_tslsi, file_tas,
         calc_global_rwr(events, tslsi_anom, tas_anom, weights, regrid_model,
                         modis_out=False, **kw_rwr)
         if use_modis:
-            calc_global_rwr(events, modis_anom, tas_anom, weights, regrid_model,
+            calc_global_rwr(events, modis_anom, tas_anom, weights,
+                            regrid_model,
                             modis_out=True, **kw_rwr)
 
     return

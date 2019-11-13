@@ -88,7 +88,7 @@ class LandGrid(object):
             kw_plot = dict()
 
         plt.sca(ax)
-        I = iplt.pcolormesh(cube, **kw_plot)
+        PCM = iplt.pcolormesh(cube, **kw_plot)
         ax.coastlines(resolution="50m", lw=0.5)
 
         if labelled:
@@ -104,7 +104,7 @@ class LandGrid(object):
                 # Catch attempts to gridline unsupported projections.
                 logger.warn(str(e))
 
-        return I
+        return PCM
 
     def write_vars(self, filename, var, metadata, dims_extra=None,
                    gattr=None):

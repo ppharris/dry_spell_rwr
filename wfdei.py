@@ -97,8 +97,7 @@ def regrid_wfdei(res):
             if TILE.count() > lp_min:
                 ListH.append(H)
                 ListV.append(V)
-                l = TILE.compressed().tolist()
-                ListLP.append(l)
+                ListLP.append(TILE.compressed().tolist())
 
     coarse_grid = LandGrid(None, lons, lats, [ListV, ListH])
 

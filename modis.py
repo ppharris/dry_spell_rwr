@@ -32,5 +32,6 @@ def read_files(dates, varnames, modis_dir):
     var = [array(v) for v in zip(*vgen)]
     return var
 
+
 if __name__ == "__main__":
     pass

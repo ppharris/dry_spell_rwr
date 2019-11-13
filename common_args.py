@@ -31,5 +31,6 @@ def get_common_args(require_input_dir=False):
 
     return args
 
+
 if __name__ == "__main__":
     pass

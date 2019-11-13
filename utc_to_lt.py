@@ -301,7 +301,7 @@ def check_weights(weights_func, local_time, tsType=TS_INST, lons=None):
 
     logger.info(("Day, Hour" + ", {:8.2f}"*len(lons)).format(*lons))
     for d, t, w in zip(days, times, wg):
-        logger.info(("{:s}, {:s}".format(d, t) + ", {:8.4f}"*len(w)).format(*w))
+        logger.info(("{:s}, {:s}" + ", {:8.4f}"*len(w)).format(d, t, *w))
 
     return
 
