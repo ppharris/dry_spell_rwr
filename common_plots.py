@@ -88,7 +88,7 @@ def nc_rwr_read(filename, grid, name_rwr="rwr", name_neve="neve",
     # Make a boolean array showing which gridboxes rwr estimates have standard
     # errors that exceed a threshold value (i.e, are too large).  This is used
     # to grey-out grid boxes on an RWR map.
-    bad = se > se_max
+    bad = (se > se_max) & ~(neve < neve_min)
 
     return rwr, bad
 
