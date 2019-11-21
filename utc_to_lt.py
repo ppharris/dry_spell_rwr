@@ -128,8 +128,6 @@ def make_daily_var(files_var, var_name, local_time, weights_func, land_grid,
     if file_reader is None:
         file_reader = default_file_reader
 
-    file_reader = dask.delayed(file_reader)
-
     ###########################################################################
     # Calculate the interpolation/summation weights through days [D-1, D, D+1]
     # that will be used to reduce the time series from sub-daily to daily.
@@ -167,6 +165,7 @@ def make_daily_var(files_var, var_name, local_time, weights_func, land_grid,
     return
 
 
+@dask.delayed
 def default_file_reader(filename, varname, land):
     """
     Read data from a netCDF file and return it in an array with shape
@@ -439,7 +438,8 @@ def var_meta(filename, varname, nland=None):
         if nland is None:
             shape = ncid.variables[varname].shape
         else:
-            dname = "time" if "time" in ncid.dimensions else "tstep"
+            time_names = ("time", "tstep", "t", "t_1")
+            dname = next(n for n in time_names if n in ncid.dimensions)
             shape = (ncid.dimensions[dname].size, nland)
 
     return {"shape": shape, "dtype": dtype}
@@ -496,14 +496,28 @@ def get_var_atlocaltime(ffiles, varname, fillvalue, weights_lon,
 
     """
 
-    # Pre-read some metadata info to help with delayed reading of full data.
-    nland = land_indexes.shape[1]
-    meta = [var_meta(f, varname, nland=nland) for f in ffiles]
+    logger.info("Processing %s", varname)
 
-    # Construct a Dask virtual array of the whole time series.
-    read_tasks = [file_reader(f, varname, land_indexes) for f in ffiles]
-    arra_tasks = [da.from_delayed(t, **m) for t, m in zip(read_tasks, meta)]
-    var = da.concatenate(arra_tasks, axis=0)
+    # Decide whether to use Dask to read the data based on whether the
+    # file_reader() function has been decorated with dask_delayed(). I doubt
+    # that this logic will be robust, so be careful making changes within this
+    # function.
+    using_dask = hasattr(file_reader, "compute")
+
+    if using_dask:
+        # Pre-read some metadata info to help with delayed reading of full data.
+        nland = land_indexes.shape[1]
+        meta = [var_meta(f, varname, nland=nland) for f in ffiles]
+
+        # Construct a Dask virtual array of the whole time series.
+        read_tasks = [file_reader(f, varname, land_indexes) for f in ffiles]
+        arra_tasks = [da.from_delayed(t, **m) for t, m in zip(read_tasks, meta)]
+        concatenate = da.concatenate
+    else:
+        arra_tasks = [file_reader(f, varname, land_indexes) for f in ffiles]
+        concatenate = np.concatenate
+
+    var = concatenate(arra_tasks, axis=0)
 
     # Apply scale and offset.
     var = var * scale
@@ -513,7 +527,7 @@ def get_var_atlocaltime(ffiles, varname, fillvalue, weights_lon,
     # of steps_per_day by duplicating fields at the beginning and/or end.
     var_pre = [var[:1, ...], ] * tsPad[0]
     var_post = [var[-1:, ...], ] * tsPad[1]
-    var = da.concatenate(var_pre + [var, ] + var_post, axis=0)
+    var = concatenate(var_pre + [var, ] + var_post, axis=0)
 
     # Estimate instantaneous time series values valid at the time step
     # mid-points that can be used to interpolate to the required daily output
@@ -551,8 +565,9 @@ def get_var_atlocaltime(ffiles, varname, fillvalue, weights_lon,
         v = (var[s, :]*weights).sum(axis=0)
         varday.append(v)
 
-    logger.info("Doing the compute.")
-    varday = dask.compute(*varday)
+    if using_dask:
+        logger.info("Doing the compute.")
+        varday = dask.compute(*varday)
 
     logger.info("Doing the concatenate.")
     varday = np.r_[varday[:1], varday, varday[-1:]]
