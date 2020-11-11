@@ -44,16 +44,15 @@ setup(
         "cftime",
         # conda: cython>0.15.0,
         # conda: cf-units>2,
-        "dask>=1.2.0",  # Versions required by Iris.
-        "matplotlib>=2,<3",  # Versions required by Iris.
+        # conda: geos (not the pip package!)
         "netcdf4",
         # conda: numpy>1.14,
-        # conda: proj4<6,
+        # conda: proj,
         # conda: pyke,
         "scipy",
         "scitools-iris",
         # conda: udunits2,
     ],
 
-    python_requires=">=3,<3.8",
+    python_requires=">=3",
 )

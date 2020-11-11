@@ -32,9 +32,12 @@ prerequisites listed below that must be satisfied prior to running,
 
 ## Requirements
 
-This package requires Python 3 (versions up to 3.7); Python 2 is not supported.
-This package uses Cartopy, which has several dependencies that cannot be
-satisfied through `setuptools`, so must be available prior to running the
-installation.  These are `cython` (version 0.15.1 or later), `numpy` (version
-1.14 or later), `udunits2`, `cf-units` (version 2 or later), `proj4` (versions
-prior to 6) and `pyke`.
+This package requires Python 3; Python 2 is not supported.  This package uses
+Cartopy, which has several dependencies that cannot be satisfied through
+`setuptools`, so must be available prior to running the installation.  These
+are `cython` (version 0.15.1 or later), `numpy` (version 1.14 or later),
+`udunits2`, `cf-units` (version 2 or later), `geos`, `proj` and `pyke`.
+
+NB Here `geos` is the [Geometry Engine, Open Source](https://geos.osgeo.org) not
+the [Google Earth Overlay Server](https://github.com/grst/geos), which is what
+you get if you `pip install geos`.

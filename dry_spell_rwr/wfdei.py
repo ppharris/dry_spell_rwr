@@ -18,8 +18,8 @@ from . import IMDI
 from .geo_grid import read_grid, LandGrid
 
 
-file_sftlf_wfdei = resource_filename(__package__, "data/sftlf_fx_WFD-EI.nc")
-file_sftlf_wfdei_1d = resource_filename(__package__,
+file_sftlf_wfdei = resource_filename(__name__, "data/sftlf_fx_WFD-EI.nc")
+file_sftlf_wfdei_1d = resource_filename(__name__,
                                         "data/sftlf_fx_WFD-EI_1deg.nc")
 
 NC_WFDEI = 720    # Number of columns in wfdei grid
