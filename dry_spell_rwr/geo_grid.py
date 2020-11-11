@@ -96,8 +96,8 @@ class LandGrid(object):
                 ggl = ax.gridlines(color="0.5",
                                    linestyle="--",
                                    draw_labels=True)
-                ggl.xlabels_top = False
-                ggl.ylabels_right = False
+                ggl.top_labels = False
+                ggl.right_labels = False
                 ggl.xlabel_style = {"size": 10}
                 ggl.ylabel_style = {"size": 10}
             except TypeError as e:

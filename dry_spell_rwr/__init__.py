@@ -23,6 +23,11 @@ warnings.filterwarnings("ignore",
                         category=MatplotlibDeprecationWarning,
                         message=".*mpl_toolkits.axes_grid1.*")
 
+warnings.filterwarnings("ignore",
+                        module="iris",
+                        category=UserWarning,
+                        message=".*test_data_dir.*")
+
 HEADER = r"""
       ___           ___           ___
      /  /\         /__/\         /  /\
