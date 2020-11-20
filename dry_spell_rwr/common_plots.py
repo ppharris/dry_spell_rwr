@@ -80,7 +80,9 @@ def nc_rwr_read(filename, grid, name_rwr="rwr", name_neve="neve",
 
     with nc.Dataset(filename, "r") as ncid:
         rwr = ncid.variables[name_rwr][:]
-        neve = ncid.variables[name_neve][6:, ...].min(axis=0)
+
+        days = (ncid.variables["time"][:] >= ncid.regress_day_start)
+        neve = ncid.variables[name_neve][days, ...].min(axis=0)
         rwr.mask[neve < neve_min] = True
 
         se = ncid.variables[name_se][:]
