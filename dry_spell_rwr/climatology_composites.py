@@ -7,7 +7,7 @@ from __future__ import print_function, division
 
 import numpy as np
 from cftime import utime
-from scipy.stats import linregress
+from scipy.stats.mstats import linregress
 
 from . import (FMDI, _RWR_BEG, _RWR_END, _NDAYS_ANTE, _NDAYS_DRY,
                _PTILES, _WIN_LEN, logger)
@@ -330,19 +330,26 @@ class Composite(object):
     def calc_rwr(self, days):
         """Calculate RWR stats over some sub-period of the composite.
 
+        RWR stats are calculated if there are at least two days with data.
+
         Parameters
         ----------
         days : slice
             Subperiod over which RWR is calculated.
         """
 
-        if self.bounds is None:
-            self.stats = [FMDI, ]*5
-        else:
+        self.stats = [FMDI, ]*5
+
+        if self.bounds is not None:
             days_c = self.get_days()
-            self.stats = linregress(days_c[days], self.td[days])
+
+            x, y = days_c[days], self.td[days]
+            if np.ma.count(y) > 1:
+                self.stats = linregress(x, y)
+
             self.regress_day_start = days_c[days][0]
             self.regress_day_end = days_c[days][-1]
+
         return
 
 

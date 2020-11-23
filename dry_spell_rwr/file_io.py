@@ -9,7 +9,7 @@ from __future__ import print_function, division
 import netCDF4 as nc
 import numpy as np
 from cftime import utime
-from scipy.stats import linregress
+from scipy.stats.mstats import linregress
 
 from . import FMDI, logger
 from .climatology_composites import Composite
@@ -406,14 +406,17 @@ def nc_rwr_combine(grid_file, files_in, file_out):
     # Finalise the weighted composite mean.
     td_all /= wsum_all
 
-    # Calculate stats on the new combined TD.
+    # Calculate stats on the new combined TD if there is more than one day with
+    # data.
     def calc_rwr(td):
-        if all(td.mask):
-            stats = [FMDI, ] * 5
+        s = slice(ndays_ante + regress_day_start,
+                  ndays_ante + regress_day_end + 1)
+        x, y = days[s], td[s]
+        if np.ma.count(y) > 1:
+            stats = linregress(x, y)
         else:
-            s = slice(ndays_ante + regress_day_start,
-                      ndays_ante + regress_day_end + 1)
-            stats = linregress(days[s], td[s])
+            stats = [FMDI, ] * 5
+
         return stats
 
     stats_out = [s for s in np.apply_along_axis(calc_rwr, 0, td_all)]
