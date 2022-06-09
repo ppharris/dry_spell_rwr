@@ -27,7 +27,7 @@ doi:[10.1175/JHM-D-15-0064.1](http://doi.org/10.1175/JHM-D-15-0064.1)
 If you are installing the package from this source using `setuptools` there are
 prerequisites listed below that must be satisfied prior to running,
 
-    python setup.py install
+    pip install .
 
 
 ## Requirements
