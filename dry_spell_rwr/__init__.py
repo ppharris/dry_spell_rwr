@@ -28,26 +28,10 @@ warnings.filterwarnings("ignore",
                         category=UserWarning,
                         message=".*test_data_dir.*")
 
-HEADER = r"""
-      ___           ___           ___
-     /  /\         /__/\         /  /\
-    /  /::\       _\_ \:\       /  /::\
-   /  /:/\:\     /__/\ \:\     /  /:/\:\
-  /  /:/~/:/    _\_ \:\ \:\   /  /:/~/:/
- /__/:/ /:/___ /__/\ \:\ \:\ /__/:/ /:/___
- \  \:\/:::::/ \  \:\ \:\/:/ \  \:\/:::::/
-  \  \::/~~~~   \  \:\ \::/   \  \::/~~~~
-   \  \:\        \  \:\/:/     \  \:\
-    \  \:\        \  \::/       \  \:\
-     \__\/         \__\/         \__\/
-
-""" + __doc__
-
 log_fmt = "%(asctime)s %(levelname)s %(name)s:%(lineno)s\t%(message)s"
 logging.basicConfig(format=log_fmt, datefmt='%H:%M:%S', level="INFO")
 
 logger = logging.getLogger(__name__)
-logger.info(HEADER)
 
 # Missing data indicators used by this package.
 FMDI = -9999.0
